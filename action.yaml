@@ -1,0 +1,37 @@
+name: 'Deploy Node Server'
+description: 'Deploy Node Server to VPS'
+inputs:
+  stage:
+    description: 'The target includes test, staging or production'
+    required: true
+    default: '~'
+runs:
+  steps: 
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ inputs.stage }}
+    - name: copy file via scp
+      uses: appleboy/scp-action@master
+      env:
+        HOST: ${{ secrets.DEPLOY_HOST }}
+        USERNAME: ${{ secrets.DEPLOY_USER }}
+        PORT: ${{ secrets.DEPLOY_PORT }}
+        KEY: ${{ secrets.DEPLOY_KEY }}        
+      with:
+        rm: true
+        source: "./"
+        target: ${{ secrets.DEPLOY_TARGET }}/${{ inputs.stage }}
+    - name: executing remote command
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        USERNAME: ${{ secrets.DEPLOY_USER }}
+        PORT: ${{ secrets.DEPLOY_PORT }}
+        KEY: ${{ secrets.DEPLOY_KEY }}
+        script: |
+          export NODE_ENV=${{ inputs.stage }}
+          cd ${{ secrets.DEPLOY_TARGET }}/${{ inputs.stage }}
+          npm install
+          npm run build
+          pm2 delete ${{ secrets.DEPLOY_TARGET }}-api
+          pm2 start dist/index.js --name "${{ secrets.DEPLOY_TARGET }}-api"
